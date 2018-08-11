@@ -9,7 +9,7 @@
 # -------------------------------- Initialize library --------------------------------------------------
 
 
-def libbuild(rRNA): 
+def libbuild(rRNA):
     """
     Build the initial library of 4096 pairs including
     all possible combinations from randomizing 6 bases in the SD/ASD region.
@@ -249,16 +249,21 @@ def findCDSfromformatted(filepath):
                         try:
                             int(line[idx2 + 2: idx2_1-1]) - 1
                         except ValueError:
-                            print('This CDS location was not used' + (line[idx2 + 2: idx2_1-1]) - 1)
+                            print('This CDS location was not used' + (line[idx2 + 2:idx2_1 -1]))
                             pass
                         cdslist2.append(int(line[idx2 + 2: idx2_1 - 1]) - 1)  # -1 to account for Python indexing
                         pass
                 else:
+                    try:
+                        int(line[idx2 + 2:idx2_1-1]) - 1
+                    except ValueError:
+                        print('This CDS location was not used' + (line[idx2 + 2:idx2_1-1]))
+                        pass
                     cdslist1.append(int(line[idx1 + 10: idx2]) - 1)
+                    pass
             else:
                 pass
     return cdslist1, cdslist2
-
 
 def getallTIRs(CDSfile, genome, nameoforganism, path):
     """
@@ -532,33 +537,39 @@ class Library:
 # end = 4168200
 # direction = 'forward'
 # rRNA = get16srRNAseq(genome,start,end,direction)
+# print(rRNA)
+# print(len(rRNA))
 # initiallib = libbuild(rRNA)
 # ecolistrain = Library(initiallib) #create the E. Coli instance.
-# ecolistrain.narrow_binding(genome,start,end)
-# ecolistrain.narrow_crossbinding(genome,start,end)
-# ecolistrain.ASD_2rystructure_narrow(genome,start,end)
-# pickle.dump(ecolistrain, open("E.coli after step 7 ASD-SD lists.p",'wb'))
+# ecolistrain.narrow_binding(genome,start,end,direction)
+# ecolistrain.narrow_crossbinding(genome,start,end,direction)
+# ecolistrain.ASD_2rystructure_narrow(genome,start,end,direction)
+# pickle.dump(ecolistrain, open("E.coli K-12 MG1655 lists.p",'wb'))
 # ecolistrain.allASDTIRpairs(CDSfile, genome, nameoforganism, path)
 #
+#
 # # ------------------------ Create the P. Putida instance and run all the steps on it----------------------
-# ## 1522 bp long 16s rRNA, position 2,548,690 -> 2,550,211
+# ## 1547 bp long 16s rRNA, position 717166 -> 718712
 # import os
-# CDSfile = os.path.join(os.path.dirname(__file__), "Pseudomonas putida KT2440 (g-proteobacteria) CDS.txt")
-# genome = os.path.join(os.path.dirname(__file__), "Pseudomonas putida KT2440 (g-proteobacteria) genome.txt")
+# import pickle
+# CDSfile = os.path.join(os.path.dirname(__file__), "Pseudomonas putida F1 CDSs.txt")
+# genome = os.path.join(os.path.dirname(__file__), "Pseudomonas Putida F1 genome.txt")
 # nameoforganism = 'P. Putida'
 # path = os.path.dirname(__file__)
-# start = 2548690
-# end = 2550211
+# start = 717166
+# end = 718712
 # direction = 'forward'
 # rRNA = get16srRNAseq(genome,start,end,direction)
+# print(rRNA)
+# print(len(rRNA))
 # initiallib = libbuild(rRNA)
 # pputidastrain = Library(initiallib) #create the Pneudomonas Putida instance.
-# pputidastrain.narrow_binding(genome,start,end)
-# pputidastrain.narrow_crossbinding(genome,start,end)
-# pputidastrain.ASD_2rystructure_narrow(genome,start,end)
-# pickle.dump(pputidastrain, open("P. Putida after step 7 ASD-SD lists.p",'wb'))
+# pputidastrain.narrow_binding(genome,start,end,'forward')
+# pputidastrain.narrow_crossbinding(genome,start,end,'forward')
+# pputidastrain.ASD_2rystructure_narrow(genome,start,end,'forward')
+# pickle.dump(pputidastrain, open("P. Putida F1 lists.p",'wb'))
 # pputidastrain.allASDTIRpairs(CDSfile, genome, nameoforganism, path)
-#
+
 # # ------------------------ Create the L. Lactis instance and run all the steps on it----------------------
 # ## 1548 bp long 16s rRNA, position 537,561 -> 539,108
 # import os
@@ -578,45 +589,119 @@ class Library:
 # pickle.dump(llactisstrain, open("L. Lactis after step 7 ASD-SD lists.p",'wb'))
 # llactisstrain.allASDTIRpairs(CDSfile, genome, nameoforganism, path)
 #
-# # ------------------------ Create the B. Subtilis instance and run all the steps on it----------------------
-# ## 1555 bp long 16s rRNA, position 9,810 -> 11,364
+# ------------------------ Create the B. Subtilis instance and run all the steps on it----------------------
+## 1556 bp long 16s rRNA, position 9,810 -> 11,365
+import pickle
+import os
+CDSfile = os.path.join(os.path.dirname(__file__), "bacillus subtilis 6051-HGW CDSs.txt")
+genome = os.path.join(os.path.dirname(__file__), "bacillus subtilis 6051-HGW genome.txt")
+nameoforganism = 'B. Subtilis'
+path = os.path.dirname(__file__)
+start = 9810
+end = 11365
+direction = 'forward'
+rRNA = get16srRNAseq(genome,start,end,direction)
+print(rRNA)
+print(len(rRNA))
+initiallib = libbuild(rRNA)
+bsubtilisstrain = Library(initiallib) #create the B. Subtilis instance.
+bsubtilisstrain.narrow_binding(genome,start,end,direction)
+bsubtilisstrain.narrow_crossbinding(genome,start,end,direction)
+bsubtilisstrain.ASD_2rystructure_narrow(genome,start,end,direction)
+pickle.dump(bsubtilisstrain, open("B. Subtilis 6051-HGW lists.p",'wb'))
+bsubtilisstrain.allASDTIRpairs(CDSfile, genome, nameoforganism, path)
+
+
+
+
+# # ------------------------ Create the S. Meliloti instance and run all the steps on it----------------------
+# ## 1484 bp long 16s rRNA, position 81,767 -> 83,250
 # import os
-# CDSfile = os.path.join(os.path.dirname(__file__), "Bacillus subtilis str. 168 CDS.txt")
-# genome = os.path.join(os.path.dirname(__file__), "Bacillus subtilis str. 168 genome.txt")
-# nameoforganism = 'B. Subtilis'
+# import pickle
+# CDSfile = os.path.join(os.path.dirname(__file__), "Sinorhizobium meliloti 1021 CDSs.txt")
+# genome = os.path.join(os.path.dirname(__file__), "Sinorhizobium meliloti 1021 chromosome genome.txt")
+# nameoforganism = 'S. Meliloti'
 # path = os.path.dirname(__file__)
-# start = 9810
-# end = 11364
+# start = 81767
+# end = 83250
 # direction = 'forward'
 # rRNA = get16srRNAseq(genome,start,end,direction)
 # initiallib = libbuild(rRNA)
-# bsubtilisstrain = Library(initiallib) #create the B. Subtilis instance.
-# bsubtilisstrain.narrow_binding(genome,start,end)
-# bsubtilisstrain.narrow_crossbinding(genome,start,end)
-# bsubtilisstrain.ASD_2rystructure_narrow(genome,start,end)
-# pickle.dump(bsubtilisstrain, open("B. Subtilis after step 7 ASD-SD lists.p",'wb'))
-# bsubtilisstrain.allASDTIRpairs(CDSfile, genome, nameoforganism, path)
-#
-#
-
-# # ------------------------ Create the A. Baylyi instance and run all the steps on it----------------------
-# ## 1472 bp long 16s rRNA, position 193,231 <- 194,702
-# import os
-# import pickle
-# CDSfile = os.path.join(os.path.dirname(__file__), "Acinetobacter baylyi CIP 107474 CDSs.txt")
-# genome = os.path.join(os.path.dirname(__file__), "Acinetobacter baylyi CIP 107474 genome.txt")
-# nameoforganism = 'A. Baylyi'
-# path = os.path.dirname(__file__)
-# start = 193231
-# end = 194702
-# direction = 'reverse'
-# rRNA = get16srRNAseq(genome,start,end,direction)
-# print(rRNA)
-# initiallib = libbuild(rRNA)
-# abaylyistrain = Library(initiallib) #create the A. Baylyi instance.
+# abaylyistrain = Library(initiallib) #create the S. Meliloti instance.
 # abaylyistrain.narrow_binding(genome,start,end,direction)
 # abaylyistrain.narrow_crossbinding(genome,start,end,direction)
 # abaylyistrain.ASD_2rystructure_narrow(genome,start,end,direction)
-# pickle.dump(abaylyistrain, open("A. Baylyi after step 7 ASD-SD lists.p",'wb'))
+# pickle.dump(abaylyistrain, open("S. Meliloti 1021 lists.p",'wb'))
 # abaylyistrain.allASDTIRpairs(CDSfile, genome, nameoforganism, path)
-# 
+
+
+# # ------------------------ Create the C. Glutamicum instance and run all the steps on it----------------------
+# ## 1425 bp long 16s rRNA, position 856119 -> 857643
+# import os
+# import pickle
+# CDSfile = os.path.join(os.path.dirname(__file__), "Corynebacterium glutamicum ATCC 13032 CDSs.txt")
+# genome = os.path.join(os.path.dirname(__file__), "Corynebacterium glutamicum ATCC 13032 genome.txt")
+# nameoforganism = 'C. Glutamicum'
+# path = os.path.dirname(__file__)
+# start = 856119
+# end = 857643
+# direction = 'forward'
+# rRNA = get16srRNAseq(genome,start,end,direction)
+# initiallib = libbuild(rRNA)
+# cglutmicumstrain = Library(initiallib) #create the C. Glutamicum instance
+# cglutmicumstrain.narrow_binding(genome,start,end,direction)
+# cglutmicumstrain.narrow_crossbinding(genome,start,end,direction)
+# cglutmicumstrain.ASD_2rystructure_narrow(genome,start,end,direction)
+# pickle.dump(cglutmicumstrain, open("C. Glutamicum ATCC 13032 lists.p",'wb'))
+# cglutmicumstrain.allASDTIRpairs(CDSfile, genome, nameoforganism, path)
+
+# # ------------------------ Create the S. Oneidensis instance and run all the steps on it----------------------
+# ## 1434 bp long 16s rRNA, position 269814 -> 271347
+# import os
+# import pickle
+# CDSfile = os.path.join(os.path.dirname(__file__), "Shewanella oneidensis MR-1 CDSs.txt")
+# genome = os.path.join(os.path.dirname(__file__), "Shewanella oneidensis MR-1 chromosome genome.txt")
+# nameoforganism = 'S. Oneidensis'
+# path = os.path.dirname(__file__)
+# start = 269814
+# end = 271347
+# direction = 'forward'
+# rRNA = get16srRNAseq(genome,start,end,direction)
+# initiallib = libbuild(rRNA)
+# Soneidensisstrain = Library(initiallib) #create the S. Oneidensis instance
+# Soneidensisstrain.narrow_binding(genome,start,end,direction)
+# Soneidensisstrain.narrow_crossbinding(genome,start,end,direction)
+# Soneidensisstrain.ASD_2rystructure_narrow(genome,start,end,direction)
+# pickle.dump(Soneidensisstrain, open("S. Oneidensis MR-1 lists.p",'wb'))
+# Soneidensisstrain.allASDTIRpairs(CDSfile, genome, nameoforganism, path)
+
+# # ------------------------ Create the V. Natriegens instance and run all the steps on it----------------------
+# ## 1434 bp long 16s rRNA, position 269814 -> 271347
+# import os
+# import pickle
+# CDSfile = os.path.join(os.path.dirname(__file__), "Vibrio natriegens 14048 CDSs.txt")
+# genome = os.path.join(os.path.dirname(__file__), "Vibrio natriegens 14048 chromosome 1 genome.txt")
+# nameoforganism = 'V. Natriegens'
+# path = os.path.dirname(__file__)
+# start = 3010705
+# end = 3012266
+# direction = 'forward'
+# rRNA = get16srRNAseq(genome,start,end,direction)
+# initiallib = libbuild(rRNA)
+# vnatriegensstrain = Library(initiallib) #create the V. Natriegens instance
+# vnatriegensstrain.narrow_binding(genome,start,end,direction)
+# vnatriegensstrain.narrow_crossbinding(genome,start,end,direction)
+# vnatriegensstrain.ASD_2rystructure_narrow(genome,start,end,direction)
+# pickle.dump(vnatriegensstrain, open("V. Natriegens MR-1 lists.p",'wb'))
+# vnatriegensstrain.allASDTIRpairs(CDSfile, genome, nameoforganism, path)
+
+
+
+
+
+
+
+
+
+
+
