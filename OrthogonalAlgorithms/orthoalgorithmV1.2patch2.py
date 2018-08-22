@@ -236,30 +236,31 @@ def findCDSfromformatted(filepath):
         for line in cdsfile:
             idx1 = line.find('[location=')
             if idx1 != -1:
-                idx2 = line.find('..')
-                if idx2 < idx1:
-                    idx2 = line.replace('..', 'ss', 1).find('..')  # in the case that there is another .. in the line,
-                    # we replace it with ss then find the actual '..' to localize the CDS.
                 if line[idx1 + 10: idx1 + 13] == 'com':
                     # complement cases -- take the second number then reverse complement
+                    idx2 = line.find('..')
+                    if idx2 < idx1:
+                        idx2 = line.replace('..', 'ss', 1).find('..')  # in the case that there is another ..
+                        # in the line, we replace it with ss then find the actual '..' to localize the CDS.
+
                     if line[idx1 + 21] == 'j':  # join cases -- unaccounted for
+                        print('This CDS location was not used ' + (line[idx1 + 21:]))
                         pass
                     else:
-                        idx2_1 = line.find(')]\n')
+                        idx2_1 = line.find(')\n')
                         try:
-                            int(line[idx2 + 2: idx2_1-1]) - 1
+                            cdslist2.append(int(line[idx2 + 2: idx2_1 - 1]) - 1)  # -1 to account for Python indexing
                         except ValueError:
-                            print('This CDS location was not used' + (line[idx2 + 2:idx2_1 -1]))
+                            print('This CDS location was not used ' + (line[idx2 + 2:idx2_1 - 1]))
                             pass
-                        cdslist2.append(int(line[idx2 + 2: idx2_1 - 1]) - 1)  # -1 to account for Python indexing
                         pass
                 else:
+                    idx2 = line.find('\n')
                     try:
-                        int(line[idx2 + 2:idx2_1-1]) - 1
+                        cdslist1.append(int(line[idx1 + 10: idx2]) - 1)
                     except ValueError:
-                        print('This CDS location was not used' + (line[idx2 + 2:idx2_1-1]))
+                        print('This CDS location was not used ' + (line[idx2 + 2:]))
                         pass
-                    cdslist1.append(int(line[idx1 + 10: idx2]) - 1)
                     pass
             else:
                 pass
@@ -304,14 +305,14 @@ def getallTIRs(CDSfile, genome, nameoforganism, path):
                     pass
 
                 else:
-                    # here we have the case when we already passed the start of this TIR, so we have to go back to the
-                    # previous line
+                    # here we have the case when we already passed the start of this TIR, so the entire TIR is
+                    # encompassed in the string "currentandprevious"
                     a = convertTtoU(currentandprevious[idx3 + (len(line) - 21):idx3 + len(line) + 3])  # 49, 73
 
                     TIRdict['TIR' + str(i + 1)] = a  # 59 to 73
                     i = i + 1
                     previousline = line.rstrip()
-                    index += len(line)  # each line is 70 bps long
+                    index += len(line)
                     pass
 
     # ------------------ Complement cases where TIRs are found on complementary strand -------------------
@@ -399,7 +400,6 @@ class Library:
         :param genome: The string corresponding to the file path with the strain's genome file
         :param library: The library itself
         """
-        # ******************* Still have to make self.genome a parameter by moving get16srRNAseq into the class
         self.library = library
 
     # -----------------------------------------Steps 2-3----------------------------------------------------------------
@@ -430,14 +430,15 @@ class Library:
                 del self.library['ASD' + str(n + 1)]
                 del self.library['SD' + str(n + 1)]
         self.library = updatelibindex(self.library)
-        print('Library after step 3: ', self.library)
+        # print('Library after step 3: ', self.library)
+        progressbox.insert(END, "Step 3 is done")
         return self.library
 
     # -------------------------------Steps 4-5--------------------------
 
     def narrow_crossbinding(self,filename,start16sseq,stop16sseq,direction):
         """
-        Narrow down the library more by eliminating pairs with ASD that has < 1 kcal/mol binding energy with
+        Narrow down the library more by eliminating pairs with ASD that has < -1 kcal/mol binding energy with
         wild type SD
         :param: filename: the name of the file containing the full genome sequence
         :param: start16sseq: the position of the first base of the 16s rRNA in the genome.
@@ -455,7 +456,8 @@ class Library:
                 del self.library[ASD]
                 del self.library[SD]
         self.library = updatelibindex(self.library)
-        print('Library after step 5:', self.library)
+        # print('Library after step 5:', self.library)
+        progressbox.insert(END, "Step 5 is done")
         return self.library
 
     # --------------------------Steps 6-7-----------------------------------
@@ -473,7 +475,7 @@ class Library:
         full16srRNAseq = get16srRNAseq(filename,start16sseq,stop16sseq,direction)
         secstructureseqlib = secstructurelib(self.library,filename,start16sseq,stop16sseq,direction)
         # Locate the index of the first bp of the ASD for all 16S rRNA sequences
-        index = getASD(rRNA)[1]
+        index = getASD(full16srRNAseq)[1]
         """Iterate through the whole secondary structure dictionary, locating a constant positioned
         ASD and determining whether there is secondary structure in that ASD"""
         for i in range(0, int(len(self.library) / 2)):
@@ -486,7 +488,8 @@ class Library:
                 del self.library[ASDname]
                 del self.library[SDname]
         self.library = updatelibindex(self.library)
-        print('Library after step 7: ', self.library)
+        # print('Library after step 7: ', self.library)
+        progressbox.insert(END, "Step 7 is done")
         return self.library
 
     # ---------------------------------Steps 8-10-----------------------------------------------------
@@ -502,7 +505,7 @@ class Library:
         """
         TIRdict = getallTIRs(CDSfile, genome, nameoforganism, path)
         dictofvals = {}
-        print("Number of TIRs: " + str(len(TIRdict)))
+        # print("Number of TIRs: " + str(len(TIRdict)))
         listofaverages = []
         for i in range(0, round(len(self.library) / 2)):  # iterate through all ASDs
             listofvals = []
@@ -521,9 +524,8 @@ class Library:
             listofaverages.append(average)
 
         listofaverages.sort(reverse=True)
-        print('Here are the 10 top candidates with highest ASD-host binding values:')
         for i in range(0, 10):
-            print(self.library[str(dictofvals[listofaverages[i]])])
+            outputbox.insert(END, str(self.library[str(dictofvals[listofaverages[i]])])+"\n")
 
 # # ------------------------ Create the E. coli instance and run all the steps on it----------------------
 # ## 1542 bp long 16s rRNA, position 4,166,659 -> 4,168,200, postion of ASD from 1535-1540
@@ -549,7 +551,7 @@ class Library:
 #
 #
 # # ------------------------ Create the P. Putida instance and run all the steps on it----------------------
-# ## 1547 bp long 16s rRNA, position 717166 -> 718712
+## 1547 bp long 16s rRNA, position 717166 -> 718712
 # import os
 # import pickle
 # CDSfile = os.path.join(os.path.dirname(__file__), "Pseudomonas putida F1 CDSs.txt")
@@ -571,7 +573,7 @@ class Library:
 # pputidastrain.allASDTIRpairs(CDSfile, genome, nameoforganism, path)
 
 # # ------------------------ Create the L. Lactis instance and run all the steps on it----------------------
-# ## 1548 bp long 16s rRNA, position 537,561 -> 539,108
+## 1548 bp long 16s rRNA, position 537,561 -> 539,108
 # import os
 # CDSfile = os.path.join(os.path.dirname(__file__), "Lactococcus lactis subsp. lactis Il1403 (firmicutes) CDS.txt")
 # genome = os.path.join(os.path.dirname(__file__), "Lactococcus lactis subsp. lactis Il1403 (firmicutes) genome.txt")
@@ -591,25 +593,25 @@ class Library:
 #
 # ------------------------ Create the B. Subtilis instance and run all the steps on it----------------------
 ## 1556 bp long 16s rRNA, position 9,810 -> 11,365
-import pickle
-import os
-CDSfile = os.path.join(os.path.dirname(__file__), "bacillus subtilis 6051-HGW CDSs.txt")
-genome = os.path.join(os.path.dirname(__file__), "bacillus subtilis 6051-HGW genome.txt")
-nameoforganism = 'B. Subtilis'
-path = os.path.dirname(__file__)
-start = 9810
-end = 11365
-direction = 'forward'
-rRNA = get16srRNAseq(genome,start,end,direction)
-print(rRNA)
-print(len(rRNA))
-initiallib = libbuild(rRNA)
-bsubtilisstrain = Library(initiallib) #create the B. Subtilis instance.
-bsubtilisstrain.narrow_binding(genome,start,end,direction)
-bsubtilisstrain.narrow_crossbinding(genome,start,end,direction)
-bsubtilisstrain.ASD_2rystructure_narrow(genome,start,end,direction)
-pickle.dump(bsubtilisstrain, open("B. Subtilis 6051-HGW lists.p",'wb'))
-bsubtilisstrain.allASDTIRpairs(CDSfile, genome, nameoforganism, path)
+# import pickle
+# import os
+# CDSfile = os.path.join(os.path.dirname(__file__), "bacillus subtilis 6051-HGW CDSs.txt")
+# genome = os.path.join(os.path.dirname(__file__), "bacillus subtilis 6051-HGW genome.txt")
+# nameoforganism = 'B. Subtilis'
+# path = os.path.dirname(__file__)
+# start = 9810
+# end = 11365
+# direction = 'forward'
+# rRNA = get16srRNAseq(genome,start,end,direction)
+# print(rRNA)
+# print(len(rRNA))
+# initiallib = libbuild(rRNA)
+# bsubtilisstrain = Library(initiallib) #create the B. Subtilis instance.
+# bsubtilisstrain.narrow_binding(genome,start,end,direction)
+# bsubtilisstrain.narrow_crossbinding(genome,start,end,direction)
+# bsubtilisstrain.ASD_2rystructure_narrow(genome,start,end,direction)
+# pickle.dump(bsubtilisstrain, open("B. Subtilis 6051-HGW lists.p",'wb'))
+# bsubtilisstrain.allASDTIRpairs(CDSfile, genome, nameoforganism, path)
 
 
 
@@ -696,6 +698,86 @@ bsubtilisstrain.allASDTIRpairs(CDSfile, genome, nameoforganism, path)
 # vnatriegensstrain.allASDTIRpairs(CDSfile, genome, nameoforganism, path)
 
 
+# --------------------------Code for GUI begins here-----------------------------------------------
+
+def GUItoCode():
+    """
+    Gets inputs from the GUI and runs the code on them.
+    :return: Puts the output of top 10 candidate ASDs on the GUI.
+    """
+    import os
+    import pickle
+    # --------- Obtain all variable inputs from user ----------
+    CDSfileE = CDSfileEntry.get()
+    genomeFileE = genomefileEntry.get()
+    start = int(startrRNA.get())
+    end = int(endrRNA.get())
+    direction = directionrRNA.get()
+    nameoforganism = nameoforgEntry.get()
+
+
+    #---------- Call the algorithm using the user inputs ----------
+    CDSfile = os.path.join(os.path.dirname(__file__), CDSfileE)
+    genome = os.path.join(os.path.dirname(__file__), genomeFileE)
+    path = os.path.dirname(__file__)
+    rRNA = get16srRNAseq(genome, start, end, direction)
+    initiallib = libbuild(rRNA)
+    # Works until here
+    # strain = Library(initiallib)  # create the Pseudomonas Putida instance.
+    # pstrain.narrow_binding(genome, start, end, 'forward')
+    # strain.narrow_crossbinding(genome, start, end, 'forward')
+    # strain.ASD_2rystructure_narrow(genome, start, end, 'forward')
+    # pickle.dump(strain, open((nameoforganism + ".p"), 'wb'))
+    # pputidastrain.allASDTIRpairs(CDSfile, genome, nameoforganism, path)
+
+
+
+
+
+# ------------- Create GUI interface -----------------
+from tkinter import *
+
+root = Tk()
+root.title("Orthogonal Ribosome Algorithm, V1.3, Rice University iGEM Team 2018")
+
+Label(root, text="Enter file name for CDS file (include .txt):").grid(row=0, column=0, sticky=W, padx=10, pady=10)
+CDSfileEntry = Entry(root)
+CDSfileEntry.grid(row=0, column=1, sticky=W, padx=10, pady=10)
+
+Label(root, text="Enter file name for genome file (include .txt):").grid(row=1, column=0, sticky=W, padx=10, pady=10)
+genomefileEntry = Entry(root)
+genomefileEntry.grid(row=1, column=1, sticky=W, padx=10, pady=10)
+
+Label(root, text="Enter the name of the organism:").grid(row=2, column=0, sticky=W, padx=10, pady=10)
+nameoforgEntry = Entry(root)
+nameoforgEntry.grid(row=2, column=1, sticky=W, padx=10, pady=10)
+
+Label(root, text="Enter the start and end indices of the 16s rRNA:").grid(row=3, column=0, sticky=W, padx=10, pady=10)
+Label(root, text="Start:").grid(row=4, column=0, sticky=W, padx=10, pady=10)
+startrRNA = Entry(root)
+startrRNA.grid(row=4, column=1, sticky=W, padx=10, pady=10)
+Label(root, text="End:").grid(row=4, column=2, sticky=W, padx=10, pady=10)
+endrRNA = Entry(root)
+endrRNA.grid(row=4, column=4, sticky=W, padx=10, pady=10)
+
+Label(root, text="Enter the direction of the 16s rRNA:").grid(row=5, column=0, sticky=W, padx=10, pady=10)
+directionrRNA = Entry(root)
+directionrRNA.grid(row=5, column=1, sticky=W, padx=10, pady=10)
+
+Button(root, width=20, text="Start Algorithm", command=GUItoCode).grid(row=6, column=0, sticky=W, padx=10, pady=10)
+
+Label(root, text='Here are the 10 top candidates with highest ASD-host binding values:').grid(row=7, column=0, sticky=W, padx=10, pady=10)
+outputbox = Text(root, width=100, height=5, background="#819bc4")
+outputbox.grid(row=8, column=0, sticky=W, padx=10, pady=10)
+
+Label(root, text='Progress:').grid(row=9, column=0, sticky=W, padx=10, pady=10)
+progressbox = Text(root, width=100, height=5, background="#819bb4")
+progressbox.grid(row=10, column=0, sticky=W, padx=10, pady=10)
+# Label(root, text='Progess:').grid(row=9, column=0, sticky=W, padx=10, pady=10)
+# progressbox = Text(root, width=100, height=5, background="#819bc4")
+# progressbox.grid(row=10, column=0, sticky=W, padx=10, pady=10)
+
+root.mainloop()
 
 
 
