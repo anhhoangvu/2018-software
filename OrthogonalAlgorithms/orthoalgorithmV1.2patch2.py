@@ -4,7 +4,17 @@
 # Vu Hoang Anh and Sai Sriram
 # Correspondence: ss162@rice.edu; ahv1@rice.edu
 
-
+import threading
+import time
+import re
+import subprocess
+import os
+from subprocess import Popen, PIPE, STDOUT
+import pickle
+import threading
+import time
+from tkinter import *
+import queue
 # ---------------------------------------Step 1----------------------------------------------------------
 # -------------------------------- Initialize library --------------------------------------------------
 
@@ -37,7 +47,6 @@ def libbuild(rRNA):
         Libdict['SD{0}'.format(x + 1)] = pair[0]
         Libdict['ASD{0}'.format(x + 1)] = pair[1]
     return Libdict
-    return IniLibrary
 
 
 # --------------------------------- Supporting functions -------------------------------------------------------
@@ -72,12 +81,12 @@ def getASD(rRNA):
     :return: ASD: the ASD region
     :return: index: the index of the first nucleotide in the ASD region
     """
-    import re
-    for pseudoindex in re.finditer('ACCUCC',rRNA):
+
+    for pseudoindex in re.finditer('ACCUCC', rRNA):
         index = pseudoindex.start()
     index = index - 3
     ASD = rRNA[index:index+12]
-    return ASD,index
+    return ASD, index
 
 
 def revcompDNA(sequence):
@@ -103,11 +112,10 @@ def RNAduplexval(firstseq, secondseq):
     :param secondseq: The SD sequence as a string
     :return: A value corresponding to the binding energy of the ASD and SD in kcal/mol
     """
-    import subprocess
-    import os
+
     input = firstseq + '\n' + secondseq + '\n'
     input = input.encode('utf-8')
-    from subprocess import Popen, PIPE, STDOUT
+
     RNAduplexpath = os.path.join(os.path.dirname(__file__), "Vienna\\RNAduplex.exe")
     result = Popen([RNAduplexpath], stdout=subprocess.PIPE, stdin=subprocess.PIPE)
     m = result.communicate(input=input)[0]
@@ -144,11 +152,11 @@ def RNAfoldseq(fullRNAsequence):
     :param fullRNAsequence: The RNA sequence in string form.
     :return: The free energy of the folded structure.
     """
-    import subprocess
-    import os
+
+
     input = fullRNAsequence
     input = input.encode('utf-8')
-    from subprocess import Popen, PIPE, STDOUT
+
     RNAfoldpath = os.path.join(os.path.dirname(__file__), "Vienna\\RNAfold.exe")
     result = Popen([RNAfoldpath], stdout=subprocess.PIPE, stdin=subprocess.PIPE)
     m = result.communicate(input=input)[0]
@@ -163,11 +171,10 @@ def RNAfoldcentroidseq(fullRNAsequence):
     :param fullRNAsequence: The RNA sequence in string form.
     :return: The free energy of the folded structure.
     """
-    import subprocess
-    import os
+
     input = fullRNAsequence
     input = input.encode('utf-8')
-    from subprocess import Popen, PIPE, STDOUT
+
     RNAfoldpath = os.path.join(os.path.dirname(__file__), "Vienna\\RNAfold.exe")
     result = Popen([RNAfoldpath, "-p"], stdout=subprocess.PIPE, stdin=subprocess.PIPE)
     m = result.communicate(input=input)[0]
@@ -249,7 +256,7 @@ def findCDSfromformatted(filepath):
                     else:
                         idx2_1 = line.find(')\n')
                         try:
-                            cdslist2.append(int(line[idx2 + 2: idx2_1 - 1]) - 1)  # -1 to account for Python indexing
+                            cdslist2.append(int(line[idx2 + 2: idx2_1]) - 1)  # -1 to account for Python indexing
                         except ValueError:
                             print('This CDS location was not used ' + (line[idx2 + 2:idx2_1 - 1]))
                             pass
@@ -266,6 +273,7 @@ def findCDSfromformatted(filepath):
                 pass
     return cdslist1, cdslist2
 
+
 def getallTIRs(CDSfile, genome, nameoforganism, path):
     """
     Builds a dictionary of strings that contains all the TIRS, accessible via
@@ -281,9 +289,7 @@ def getallTIRs(CDSfile, genome, nameoforganism, path):
     """
     filepath = formatCDSfile(CDSfile, nameoforganism, path)
     cdslist1, cdslist2 = findCDSfromformatted(filepath)
-    print('Number of CDS = ' + str(len(cdslist1)))
-    print('Number of complement CDS = ' + str(len(cdslist2)))
-    # MUST ACCOUNT FOR THE JOIN CASES
+
     # ------------------------ Regular cases when TIRs are found on the genome strand ---------------------------------
     with open(genome, 'r') as genomefile:
         index = 0
@@ -343,10 +349,19 @@ def getallTIRs(CDSfile, genome, nameoforganism, path):
                     previousline = line.rstrip()
                     index += len(line)  # each line is 70 bps long
                     pass
+    # In some cases, the TIRdict contains empty TIRs, so this removes them.
+    error_keys = []
+    for key in TIRdict:
+        if TIRdict[key] == '':
+            error_keys.append(key)
+            print("Error: " + str(key) + " was not used due to a TIR that wasn't found.")
+    for errorkey in error_keys:
+        del TIRdict[errorkey]
+
     return TIRdict
 
 
-def secstructurelib(Library,filename,start16sseq,stop16sseq,direction):
+def secstructurelib(Library, filename, start16sseq, stop16sseq, direction):
     """
     Build a library of secondary structure of 16s rRNA corresponding to a given library of ASD and SD sequence.
     :param Library: The library of ASD SD sequence
@@ -356,7 +371,7 @@ def secstructurelib(Library,filename,start16sseq,stop16sseq,direction):
     :param: direction: indicate whether the 16s rRNA is translated in the forward of reverse direction.
     :return: A library containing secondary structure of rRNA with each ASD
     """
-    full16srRNAseq = get16srRNAseq(filename,start16sseq,stop16sseq,direction)
+    full16srRNAseq = get16srRNAseq(filename, start16sseq, stop16sseq, direction)
     NewLib = {}
     index = getASD(full16srRNAseq)[1]
     for n in range(0, int(len(Library) / 2)):
@@ -366,7 +381,7 @@ def secstructurelib(Library,filename,start16sseq,stop16sseq,direction):
     return NewLib
 
 
-def get16srRNAseq(filename,start16sseq,stop16sseq,direction):
+def get16srRNAseq(filename, start16sseq, stop16sseq, direction):
     """
     Get the full 16s rRNA sequence from the genome
     :param: filename: the name of the file containing the full genome sequence
@@ -375,7 +390,7 @@ def get16srRNAseq(filename,start16sseq,stop16sseq,direction):
     :param: direction: indicate whether the 16s rRNA is translated in the forward of reverse direction.
     :return: the full 16s rRNA sequence from the genome
     """
-    import os
+
     filepath = os.path.join(os.path.dirname(__file__), filename)
     with open(filepath, 'r') as myfile:  # determine rRNA sequence
         data = myfile.read().replace('\n', '')
@@ -389,6 +404,34 @@ def get16srRNAseq(filename,start16sseq,stop16sseq,direction):
     return full16srRNAseq
 
 
+def split_up_threadwork(total_threads, thread_number, num_iterations):
+    """
+    Splits up a specified number of iterations into approximately equal workloads for multiple threads to work on.
+    :param total_threads:
+    :param thread_number:
+    :param num_iterations:
+    :return: the iteration numbers that the specific thread number will be working on (e.g. thread 1 will work on
+    iterations 0-1024 for 4096 iterations split into 4 total threads.)
+    """
+    split_thread = round(num_iterations / total_threads)
+    if thread_number == 1:
+        index1 = 0
+        index2 = (thread_number * split_thread) - 1
+    elif thread_number != total_threads:  # not the last thread
+        not_impt, prev_idx2 = split_up_threadwork(total_threads, thread_number - 1, num_iterations)
+        # recursive definition to find the previous thread's end iteration, so the current thread's 1st iteration is
+        # just the iteration after that.
+        index1 = prev_idx2 + 1
+        index2 = index1 + split_thread
+    else:
+        not_impt, prev_idx2 = split_up_threadwork(total_threads, thread_number - 1, num_iterations)
+        index1 = prev_idx2 + 1
+        index2 = num_iterations
+    if thread_number == total_threads:
+        index2 -= 1
+    return index1, index2
+
+
 # ---------------------- Define a class to model the library and apply each step to that object -----------------
 
 
@@ -397,14 +440,44 @@ class Library:
 
     def __init__(self, library):
         """
-        :param genome: The string corresponding to the file path with the strain's genome file
-        :param library: The library itself
+        Initialize
         """
         self.library = library
 
+    def deleter_fun(self):
+        """
+        Deletes all the terms from the library that are marked for deletion with the value set to "DELETE"
+        :param library: The library containing terms that need to be deleted
+        :return: The library with all the terms deleted.
+        """
+        for i in range(0, int(len(self.library)/2)):
+            if self.library["ASD" + str(i+1)] == "DELETE":
+                del self.library["ASD" + str(i+1)]
+                del self.library["SD" + str(i+1)]
+
+    def updatelibindex(self):
+        """
+        Update the index of the sequence in the library to be continuous
+        After narrowing down the dictionary through the various steps of the algorithm, certain terms are deleted. Thus, the
+        dictionary is no longer continuous, and could be ordered "ASD1" and the next term "ASD9". This function changes the
+        "ASD9" into an "ASD2"
+        :param library: The dictionary whose keys need to be updated.
+        :return: The dictionary with updated keys.
+        """
+        liblen = len(self.library) / 2
+        n = 1
+        while (n < liblen + 1):
+            testidx = n
+            while 'ASD' + str(testidx) not in self.library:
+                testidx = testidx + 1
+            self.library['ASD{0}'.format(n)] = self.library.pop('ASD{0}'.format(testidx))
+            self.library['SD{0}'.format(n)] = self.library.pop('SD{0}'.format(testidx))
+            n = n + 1
+        return self.library
+
     # -----------------------------------------Steps 2-3----------------------------------------------------------------
 
-    def narrow_binding(self,filename,start16sseq,stop16sseq,direction):
+    def narrow_binding(self, filename, start16sseq, stop16sseq, direction, total_threads, thread_number):
         """
         Input the wildtype ASD and SD, output is the narrowed library with pairs that fall within 0.5 kcal range of the
         wildtype binding energy
@@ -412,31 +485,33 @@ class Library:
         :param: start16sseq: the position of the first base of the 16s rRNA in the genome.
         :param: stop16sseq: the position of the last base of the 16s rRNA in the genome.
         :param: direction: indicate whether the 16s rRNA is translated in the forward of reverse direction.
+        :param: thread_number: the thread number that will be started for parallel computation
+        :param: total_threads: the total number of threads that will be run in parallel
         :return: The narrowed dictionary with updated key indices only consisting of ASD/ SD pairs that have binding
         energies of -0.5 <= x <= 0.5
         """
-        rRNA = get16srRNAseq(filename,start16sseq,stop16sseq,direction)
-
+        rRNA = get16srRNAseq(filename, start16sseq, stop16sseq, direction)
+        outputbox.insert(END, "Starting Algorithm on thread " + str(thread_number) + "...\n")
         WtASD = getASD(rRNA)[0]
         WtSD = revcomp(WtASD[4:10])
         Wildval = RNAduplexval(WtASD, WtSD)  # Calculate the binding energies of Wild-type ASD/SD pair
         # self.library is the initial library after step 1
-        for n in range(0, 4096):
+        index1, index2 = split_up_threadwork(total_threads, thread_number, 4096)
+        for n in range(index1, index2):
             ASD = self.library['ASD' + str(n + 1)]
             SD = self.library['SD' + str(n + 1)]
             val = RNAduplexval(ASD, SD)
             if float(Wildval) - 0.5 >= float(val) or float(val) >= float(Wildval) + 0.5:  # Compare each ASD/SD binding
                 # energy to wild-type binding energy
-                del self.library['ASD' + str(n + 1)]
-                del self.library['SD' + str(n + 1)]
-        self.library = updatelibindex(self.library)
+                self.library['ASD' + str(n + 1)] = "DELETE"
+                self.library['SD' + str(n + 1)] = "DELETE"
         # print('Library after step 3: ', self.library)
-        progressbox.insert(END, "Step 3 is done")
+        outputbox.insert(END, "Thread " + str(thread_number) + " in Step 3 is done\n")
         return self.library
 
     # -------------------------------Steps 4-5--------------------------
 
-    def narrow_crossbinding(self,filename,start16sseq,stop16sseq,direction):
+    def narrow_crossbinding(self, filename, start16sseq, stop16sseq, direction, total_threads, thread_number):
         """
         Narrow down the library more by eliminating pairs with ASD that has < -1 kcal/mol binding energy with
         wild type SD
@@ -446,23 +521,24 @@ class Library:
         :param: direction: indicate whether the 16s rRNA is translated in the forward of reverse direction.
         :return: Further narrowed dictionary.
         """
-        rRNA = get16srRNAseq(filename,start16sseq,stop16sseq,direction)
+        rRNA = get16srRNAseq(filename, start16sseq, stop16sseq, direction)
         WtASD = getASD(rRNA)[0]
         WtSD = revcomp(WtASD[4:10])
-        for n in range(0, int(len(self.library) / 2)):
+        index1, index2 = split_up_threadwork(total_threads, thread_number, int(len(self.library) / 2))
+        for n in range(index1, index2):
             ASD = 'ASD' + str(n + 1)
             SD = 'SD' + str(n + 1)
             if float(RNAduplexval(self.library[ASD], WtSD)) < -1:
-                del self.library[ASD]
-                del self.library[SD]
-        self.library = updatelibindex(self.library)
+                self.library[ASD] = "DELETE"  # Marking it for deletion rather than deleting it outright so that the
+                # indexing for the next iteration is not messed up
+                self.library[SD] = "DELETE"
         # print('Library after step 5:', self.library)
-        progressbox.insert(END, "Step 5 is done")
+        outputbox.insert(END, "Thread " + str(thread_number) + " in Step 5 is done\n")
         return self.library
 
     # --------------------------Steps 6-7-----------------------------------
 
-    def ASD_2rystructure_narrow(self,filename,start16sseq,stop16sseq,direction):
+    def ASD_2rystructure_narrow(self, filename, start16sseq, stop16sseq, direction): #, total_threads, thread_number):
         """ Narrow down the library by discarding sequences that forms secondary structure in ASD region
          Import the most narrowed Libdict up to step 5 as well as the secondary structure dictionary.
          :param: filename: the name of the file containing the full genome sequence
@@ -472,12 +548,16 @@ class Library:
          :return: The narrowed dictionary of ASD/ SD that do not have secondary structure in the ASD region.
          """
 
-        full16srRNAseq = get16srRNAseq(filename,start16sseq,stop16sseq,direction)
-        secstructureseqlib = secstructurelib(self.library,filename,start16sseq,stop16sseq,direction)
+        full16srRNAseq = get16srRNAseq(filename, start16sseq, stop16sseq, direction)
+        secstructureseqlib = secstructurelib(self.library, filename, start16sseq, stop16sseq, direction)
         # Locate the index of the first bp of the ASD for all 16S rRNA sequences
+        print("SECSTRUCLIB ACQUIRED")
         index = getASD(full16srRNAseq)[1]
         """Iterate through the whole secondary structure dictionary, locating a constant positioned
         ASD and determining whether there is secondary structure in that ASD"""
+
+        #index1, index2 = split_up_threadwork(total_threads, thread_number, int(len(self.library) / 2))
+
         for i in range(0, int(len(self.library) / 2)):
             secname = "foldedseq" + str(i + 1)
             ASDname = "ASD" + str(i + 1)
@@ -485,16 +565,16 @@ class Library:
             secstructureseq = secstructureseqlib[secname]
             ASDrandomregion = secstructureseq[index + 4:index + 10]
             if "(" in ASDrandomregion or ")" in ASDrandomregion or "{" in ASDrandomregion or "}" in ASDrandomregion or "[" in ASDrandomregion or "]" in ASDrandomregion:
-                del self.library[ASDname]
-                del self.library[SDname]
-        self.library = updatelibindex(self.library)
+                self.library[ASDname] = "DELETE"
+                self.library[SDname] = "DELETE"
         # print('Library after step 7: ', self.library)
-        progressbox.insert(END, "Step 7 is done")
+        #self.library = updatelibindex(self.library)
+        outputbox.insert(END,  "Step 7 is done\n")
         return self.library
 
     # ---------------------------------Steps 8-10-----------------------------------------------------
 
-    def allASDTIRpairs(self, CDSfile, genome, nameoforganism, path):
+    def allASDTIRpairs(self, TIRdict, total_threads, thread_number):
         """
         Iterate through all possible ASD TIR pairs and find the ones with the highest average binding energies with host
         TIRs
@@ -503,29 +583,35 @@ class Library:
         TIRs)
         :return: Prints the list of the top ten ASD candidates.
         """
-        TIRdict = getallTIRs(CDSfile, genome, nameoforganism, path)
-        dictofvals = {}
-        # print("Number of TIRs: " + str(len(TIRdict)))
-        listofaverages = []
-        for i in range(0, round(len(self.library) / 2)):  # iterate through all ASDs
+        if thread_number == 1:
+            print("The following is the number of ASDs that we are testing:")
+            print(len(self.library)/2)
+            print(self.library)
+
+        index1, index2 = split_up_threadwork(total_threads, thread_number, (len(self.library) / 2))
+        print("Thread " + str(thread_number) + " is working on ASD" + str(index1 + 1) + " to ASD" + str(index2 + 1))
+
+        for i in range(int(index1), int(index2+1)):  # iterate through all ASDs
+
+            outputbox.insert(END, "Thread on ASD number: " + str(i+1) + "\n")
             listofvals = []
             ASDname = str('ASD' + str(i + 1))
             for j in range(0, len(TIRdict)):  # for each ASD, iterate through all TIRs in the genome
                 TIRname = str('TIR' + str(j + 1))
-                if TIRdict[TIRname] == '':
-                    pass
-                else:
+                try:
                     val = float(RNAduplexval(self.library[ASDname], TIRdict[TIRname]))
-                    listofvals.append(val)
+                except KeyError:
+                    continue
+                listofvals.append(val)
+
             average = sum(listofvals) / len(listofvals)
-            dictofvals[average] = ASDname  # calculate the average binding energy between the ASD
+
+
+            self.library[average] = self.library.pop(ASDname)  # replaces the old key with the average
+             # calculate the average binding energy between the ASD
             # and all TIRs; here we store the key as the average so that the we can call the names of the highest ASDs after
             # the list is sorted
-            listofaverages.append(average)
-
-        listofaverages.sort(reverse=True)
-        for i in range(0, 10):
-            outputbox.insert(END, str(self.library[str(dictofvals[listofaverages[i]])])+"\n")
+            #listofaverages.append(average)
 
 # # ------------------------ Create the E. coli instance and run all the steps on it----------------------
 # ## 1542 bp long 16s rRNA, position 4,166,659 -> 4,168,200, postion of ASD from 1535-1540
@@ -550,152 +636,6 @@ class Library:
 # ecolistrain.allASDTIRpairs(CDSfile, genome, nameoforganism, path)
 #
 #
-# # ------------------------ Create the P. Putida instance and run all the steps on it----------------------
-## 1547 bp long 16s rRNA, position 717166 -> 718712
-# import os
-# import pickle
-# CDSfile = os.path.join(os.path.dirname(__file__), "Pseudomonas putida F1 CDSs.txt")
-# genome = os.path.join(os.path.dirname(__file__), "Pseudomonas Putida F1 genome.txt")
-# nameoforganism = 'P. Putida'
-# path = os.path.dirname(__file__)
-# start = 717166
-# end = 718712
-# direction = 'forward'
-# rRNA = get16srRNAseq(genome,start,end,direction)
-# print(rRNA)
-# print(len(rRNA))
-# initiallib = libbuild(rRNA)
-# pputidastrain = Library(initiallib) #create the Pneudomonas Putida instance.
-# pputidastrain.narrow_binding(genome,start,end,'forward')
-# pputidastrain.narrow_crossbinding(genome,start,end,'forward')
-# pputidastrain.ASD_2rystructure_narrow(genome,start,end,'forward')
-# pickle.dump(pputidastrain, open("P. Putida F1 lists.p",'wb'))
-# pputidastrain.allASDTIRpairs(CDSfile, genome, nameoforganism, path)
-
-# # ------------------------ Create the L. Lactis instance and run all the steps on it----------------------
-## 1548 bp long 16s rRNA, position 537,561 -> 539,108
-# import os
-# CDSfile = os.path.join(os.path.dirname(__file__), "Lactococcus lactis subsp. lactis Il1403 (firmicutes) CDS.txt")
-# genome = os.path.join(os.path.dirname(__file__), "Lactococcus lactis subsp. lactis Il1403 (firmicutes) genome.txt")
-# nameoforganism = 'L. Lactis'
-# path = os.path.dirname(__file__)
-# start = 537561
-# end = 539108
-# direction = 'forward'
-# rRNA = get16srRNAseq(genome,start,end,direction)
-# initiallib = libbuild(rRNA)
-# llactisstrain = Library(initiallib) #create the L. Lactis instance.
-# llactisstrain.narrow_binding(genome,start,end)
-# llactisstrain.narrow_crossbinding(genome,start,end)
-# llactisstrain.ASD_2rystructure_narrow(genome,start,end)
-# pickle.dump(llactisstrain, open("L. Lactis after step 7 ASD-SD lists.p",'wb'))
-# llactisstrain.allASDTIRpairs(CDSfile, genome, nameoforganism, path)
-#
-# ------------------------ Create the B. Subtilis instance and run all the steps on it----------------------
-## 1556 bp long 16s rRNA, position 9,810 -> 11,365
-# import pickle
-# import os
-# CDSfile = os.path.join(os.path.dirname(__file__), "bacillus subtilis 6051-HGW CDSs.txt")
-# genome = os.path.join(os.path.dirname(__file__), "bacillus subtilis 6051-HGW genome.txt")
-# nameoforganism = 'B. Subtilis'
-# path = os.path.dirname(__file__)
-# start = 9810
-# end = 11365
-# direction = 'forward'
-# rRNA = get16srRNAseq(genome,start,end,direction)
-# print(rRNA)
-# print(len(rRNA))
-# initiallib = libbuild(rRNA)
-# bsubtilisstrain = Library(initiallib) #create the B. Subtilis instance.
-# bsubtilisstrain.narrow_binding(genome,start,end,direction)
-# bsubtilisstrain.narrow_crossbinding(genome,start,end,direction)
-# bsubtilisstrain.ASD_2rystructure_narrow(genome,start,end,direction)
-# pickle.dump(bsubtilisstrain, open("B. Subtilis 6051-HGW lists.p",'wb'))
-# bsubtilisstrain.allASDTIRpairs(CDSfile, genome, nameoforganism, path)
-
-
-
-
-# # ------------------------ Create the S. Meliloti instance and run all the steps on it----------------------
-# ## 1484 bp long 16s rRNA, position 81,767 -> 83,250
-# import os
-# import pickle
-# CDSfile = os.path.join(os.path.dirname(__file__), "Sinorhizobium meliloti 1021 CDSs.txt")
-# genome = os.path.join(os.path.dirname(__file__), "Sinorhizobium meliloti 1021 chromosome genome.txt")
-# nameoforganism = 'S. Meliloti'
-# path = os.path.dirname(__file__)
-# start = 81767
-# end = 83250
-# direction = 'forward'
-# rRNA = get16srRNAseq(genome,start,end,direction)
-# initiallib = libbuild(rRNA)
-# abaylyistrain = Library(initiallib) #create the S. Meliloti instance.
-# abaylyistrain.narrow_binding(genome,start,end,direction)
-# abaylyistrain.narrow_crossbinding(genome,start,end,direction)
-# abaylyistrain.ASD_2rystructure_narrow(genome,start,end,direction)
-# pickle.dump(abaylyistrain, open("S. Meliloti 1021 lists.p",'wb'))
-# abaylyistrain.allASDTIRpairs(CDSfile, genome, nameoforganism, path)
-
-
-# # ------------------------ Create the C. Glutamicum instance and run all the steps on it----------------------
-# ## 1425 bp long 16s rRNA, position 856119 -> 857643
-# import os
-# import pickle
-# CDSfile = os.path.join(os.path.dirname(__file__), "Corynebacterium glutamicum ATCC 13032 CDSs.txt")
-# genome = os.path.join(os.path.dirname(__file__), "Corynebacterium glutamicum ATCC 13032 genome.txt")
-# nameoforganism = 'C. Glutamicum'
-# path = os.path.dirname(__file__)
-# start = 856119
-# end = 857643
-# direction = 'forward'
-# rRNA = get16srRNAseq(genome,start,end,direction)
-# initiallib = libbuild(rRNA)
-# cglutmicumstrain = Library(initiallib) #create the C. Glutamicum instance
-# cglutmicumstrain.narrow_binding(genome,start,end,direction)
-# cglutmicumstrain.narrow_crossbinding(genome,start,end,direction)
-# cglutmicumstrain.ASD_2rystructure_narrow(genome,start,end,direction)
-# pickle.dump(cglutmicumstrain, open("C. Glutamicum ATCC 13032 lists.p",'wb'))
-# cglutmicumstrain.allASDTIRpairs(CDSfile, genome, nameoforganism, path)
-
-# # ------------------------ Create the S. Oneidensis instance and run all the steps on it----------------------
-# ## 1434 bp long 16s rRNA, position 269814 -> 271347
-# import os
-# import pickle
-# CDSfile = os.path.join(os.path.dirname(__file__), "Shewanella oneidensis MR-1 CDSs.txt")
-# genome = os.path.join(os.path.dirname(__file__), "Shewanella oneidensis MR-1 chromosome genome.txt")
-# nameoforganism = 'S. Oneidensis'
-# path = os.path.dirname(__file__)
-# start = 269814
-# end = 271347
-# direction = 'forward'
-# rRNA = get16srRNAseq(genome,start,end,direction)
-# initiallib = libbuild(rRNA)
-# Soneidensisstrain = Library(initiallib) #create the S. Oneidensis instance
-# Soneidensisstrain.narrow_binding(genome,start,end,direction)
-# Soneidensisstrain.narrow_crossbinding(genome,start,end,direction)
-# Soneidensisstrain.ASD_2rystructure_narrow(genome,start,end,direction)
-# pickle.dump(Soneidensisstrain, open("S. Oneidensis MR-1 lists.p",'wb'))
-# Soneidensisstrain.allASDTIRpairs(CDSfile, genome, nameoforganism, path)
-
-# # ------------------------ Create the V. Natriegens instance and run all the steps on it----------------------
-# ## 1434 bp long 16s rRNA, position 269814 -> 271347
-# import os
-# import pickle
-# CDSfile = os.path.join(os.path.dirname(__file__), "Vibrio natriegens 14048 CDSs.txt")
-# genome = os.path.join(os.path.dirname(__file__), "Vibrio natriegens 14048 chromosome 1 genome.txt")
-# nameoforganism = 'V. Natriegens'
-# path = os.path.dirname(__file__)
-# start = 3010705
-# end = 3012266
-# direction = 'forward'
-# rRNA = get16srRNAseq(genome,start,end,direction)
-# initiallib = libbuild(rRNA)
-# vnatriegensstrain = Library(initiallib) #create the V. Natriegens instance
-# vnatriegensstrain.narrow_binding(genome,start,end,direction)
-# vnatriegensstrain.narrow_crossbinding(genome,start,end,direction)
-# vnatriegensstrain.ASD_2rystructure_narrow(genome,start,end,direction)
-# pickle.dump(vnatriegensstrain, open("V. Natriegens MR-1 lists.p",'wb'))
-# vnatriegensstrain.allASDTIRpairs(CDSfile, genome, nameoforganism, path)
 
 
 # --------------------------Code for GUI begins here-----------------------------------------------
@@ -705,8 +645,7 @@ def GUItoCode():
     Gets inputs from the GUI and runs the code on them.
     :return: Puts the output of top 10 candidate ASDs on the GUI.
     """
-    import os
-    import pickle
+
     # --------- Obtain all variable inputs from user ----------
     CDSfileE = CDSfileEntry.get()
     genomeFileE = genomefileEntry.get()
@@ -714,28 +653,106 @@ def GUItoCode():
     end = int(endrRNA.get())
     direction = directionrRNA.get()
     nameoforganism = nameoforgEntry.get()
-
+    total_threads = int(total_threadsEntry.get())
 
     #---------- Call the algorithm using the user inputs ----------
+
     CDSfile = os.path.join(os.path.dirname(__file__), CDSfileE)
     genome = os.path.join(os.path.dirname(__file__), genomeFileE)
     path = os.path.dirname(__file__)
     rRNA = get16srRNAseq(genome, start, end, direction)
     initiallib = libbuild(rRNA)
-    # Works until here
-    # strain = Library(initiallib)  # create the Pseudomonas Putida instance.
-    # pstrain.narrow_binding(genome, start, end, 'forward')
-    # strain.narrow_crossbinding(genome, start, end, 'forward')
-    # strain.ASD_2rystructure_narrow(genome, start, end, 'forward')
-    # pickle.dump(strain, open((nameoforganism + ".p"), 'wb'))
-    # pputidastrain.allASDTIRpairs(CDSfile, genome, nameoforganism, path)
+    strain = Library(initiallib)  # create the initial organism library instance.
+# -------------------------Step 2-3 ----------------------------
+    thread_list = []
+    for i in range(1, total_threads + 1):
+        # Begin running each thread
+        process = threading.Thread(target=strain.narrow_binding, args=(genome, start, end, direction, total_threads, i))
+        process.start()
+        #process.join()
+        thread_list.append(process)
+
+    [t.join() for t in thread_list]
+    strain.deleter_fun()  # delete all the ASDs marked for deletion in step 2-3
+    strain.updatelibindex()  #Update the indices of the library to be continuous
+    thread_list = []
+    # -----------------------Step 4-5-------------------------------
+    for i in range(1, total_threads + 1):
+        process = threading.Thread(target=strain.narrow_crossbinding,
+                                   args=(genome, start, end, direction, total_threads, i))
+        process.start()
+        #process.join()
+        thread_list.append(process)
+
+    [t.join() for t in thread_list]
+
+    strain.deleter_fun()
+    strain.updatelibindex()
+
+# -------------------------Step 6-7-----------------------------
+    #thread_list = []
+    # We do not run threads on step 7 because it's super inefficient to recalculate the secondary structure library for
+    # each thread.
+    # for i in range(1, total_threads + 1):
+    #     process = threading.Thread(target=strain.ASD_2rystructure_narrow,
+    #                                args=(genome, start, end, 'forward', total_threads, i))
+    #     process.start()
+    #     process.join()
+    #     #thread_list.append(process)
+    strain.ASD_2rystructure_narrow(genome, start, end, direction)
+
+    #[t.join() for t in thread_list]
+    strain.deleter_fun()
+    strain.updatelibindex()
+
+    pickle.dump(strain, open((nameoforganism + ".p"), 'wb'))
+
+    # -------------------------Step 8-10-----------------------------
+    thread_list = []
+    TIRdict = getallTIRs(CDSfile, genome, nameoforganism, path)
+    print(TIRdict)
+    # we return dict of vals and listofaverages from the function then combine all the averages gained by the worker
+    # threads to print the final answer
+    completedict = {}
+    for i in range(1, total_threads + 1):
+        process = threading.Thread(target=strain.allASDTIRpairs, args=(TIRdict, total_threads, i))
+        process.start()
+        # process.join()
+        # Get the string version of the dictionary, stored in the rawoutput box in the GUI, then convert to a
+        # dictionary using ast
+        thread_list.append(process)
+
+    for t in thread_list:
+        # dict = q.get()
+        # completedict = completedict.update(dict)  # keeps adding the new dictionaries after every iteration
+        t.join()
+        outputbox.insert(END, "Done with thread " + str(thread_list.index(t)) + "\n")
+
+    print(strain.library)
+    listofaverages = list(
+        strain.library.keys())  # returns all the average RNAduplex values stored in the dictionary in a list
+    print(listofaverages)
+    listofaverages = listofaverages[int((len(listofaverages) / 2) + 1):]
+    listofaverages.sort(reverse=True)
+    outputbox.insert(END, "Here are the top ASD candidates:")
+    for i in range(0, len(listofaverages)):
+        outputbox.insert(END, str(i + 1) + ") " + str(strain.library[listofaverages[i]]) + "\n")
 
 
+def time_keeper():
+    for i in range(1, 10000000):
+        progressbox.insert(END, i)
+        time.sleep(2)
 
 
+def process_manager():
+    a = threading.Thread(target=GUItoCode)
+    b = threading.Thread(target=time_keeper)
+    a.start()
+    b.start()
 
 # ------------- Create GUI interface -----------------
-from tkinter import *
+
 
 root = Tk()
 root.title("Orthogonal Ribosome Algorithm, V1.3, Rice University iGEM Team 2018")
@@ -764,26 +781,19 @@ Label(root, text="Enter the direction of the 16s rRNA:").grid(row=5, column=0, s
 directionrRNA = Entry(root)
 directionrRNA.grid(row=5, column=1, sticky=W, padx=10, pady=10)
 
-Button(root, width=20, text="Start Algorithm", command=GUItoCode).grid(row=6, column=0, sticky=W, padx=10, pady=10)
+Label(root, text="Enter the amount of threads you want:").grid(row=5, column=2, sticky=W, padx=10, pady=10)
+total_threadsEntry = Entry(root)
+total_threadsEntry.grid(row=5, column=3, sticky=W, padx=10, pady=10)
+
+Button(root, width=20, text="Start Algorithm", command=process_manager).grid(row=6, column=0, sticky=W, padx=10, pady=10)
 
 Label(root, text='Here are the 10 top candidates with highest ASD-host binding values:').grid(row=7, column=0, sticky=W, padx=10, pady=10)
 outputbox = Text(root, width=100, height=5, background="#819bc4")
 outputbox.grid(row=8, column=0, sticky=W, padx=10, pady=10)
 
-Label(root, text='Progress:').grid(row=9, column=0, sticky=W, padx=10, pady=10)
 progressbox = Text(root, width=100, height=5, background="#819bb4")
 progressbox.grid(row=10, column=0, sticky=W, padx=10, pady=10)
-# Label(root, text='Progess:').grid(row=9, column=0, sticky=W, padx=10, pady=10)
-# progressbox = Text(root, width=100, height=5, background="#819bc4")
-# progressbox.grid(row=10, column=0, sticky=W, padx=10, pady=10)
+progressbox.grid_remove()
+
 
 root.mainloop()
-
-
-
-
-
-
-
-
-
