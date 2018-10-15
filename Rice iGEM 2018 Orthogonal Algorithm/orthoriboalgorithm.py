@@ -85,7 +85,7 @@ def getASD(rRNA):
     """
     for pseudoindex in re.finditer('ACCUCC', rRNA):
         index = pseudoindex.start()
-    index -= 3
+    index = index - 3
     ASD = rRNA[index:index+12]
     return ASD, index
 
@@ -603,32 +603,6 @@ class Library:
             # calculate the average binding energy between the ASD and all TIRs; here we store the key as the average
             # so that the we can call the names of the highest ASDs after the list is sorted
 
-
-# # ------------------------ Create the E. coli instance and run all the steps on it----------------------
-# ## 1542 bp long 16s rRNA, position 4,166,659 -> 4,168,200, postion of ASD from 1535-1540
-# import pickle
-# import os
-# CDSfile = os.path.join(os.path.dirname(__file__), "E coli K-12 MG1655 CDSs.fasta.txt")
-# genome = os.path.join(os.path.dirname(__file__), "E coli K-12 MG1655 genome.fasta.txt")
-# nameoforganism = 'E. Coli'
-# path = os.path.dirname(__file__)
-# start = 4166659
-# end = 4168200
-# direction = 'forward'
-# rRNA = get16srRNAseq(genome,start,end,direction)
-# print(rRNA)
-# print(len(rRNA))
-# initiallib = libbuild(rRNA)
-# ecolistrain = Library(initiallib) #create the E. Coli instance.
-# ecolistrain.narrow_binding(genome,start,end,direction)
-# ecolistrain.narrow_crossbinding(genome,start,end,direction)
-# ecolistrain.ASD_2rystructure_narrow(genome,start,end,direction)
-# pickle.dump(ecolistrain, open("E.coli K-12 MG1655 lists.p",'wb'))
-# ecolistrain.allASDTIRpairs(CDSfile, genome, nameoforganism, path)
-#
-#
-
-
 # --------------------------Code for GUI begins here-----------------------------------------------
 
 def GUItoCode():
@@ -655,7 +629,6 @@ def GUItoCode():
     genome = os.path.join(os.path.dirname(__file__), genomeFileE)
     path = os.path.dirname(__file__)
     rRNA = get16srRNAseq(genome, start, end, direction)
-    print(rRNA)
     initiallib = libbuild(rRNA)
     strain = Library(initiallib)  # create the initial organism library instance.
 # -------------------------Step 2-3 ----------------------------
@@ -705,6 +678,7 @@ def GUItoCode():
     # -------------------------Step 8-10-----------------------------
     thread_list = []
     TIRdict = getallTIRs(CDSfile, genome, nameoforganism, path)
+    print(TIRdict)
     # we return dict of vals and listofaverages from the function then combine all the averages gained by the worker
     # threads to print the final answer
     for i in range(1, total_threads + 1):
@@ -747,10 +721,21 @@ def process_manager():
 
 # ------------- Create GUI interface -----------------
 
+from PIL import ImageDraw
 
 root = Tk()
 root.title("Orthogonal Ribosome Algorithm, V1.3, Rice University iGEM Team 2018")
+image = Image.open(os.path.join(os.path.dirname(__file__), "g1878.png"))
+width, height = image.size
 
+
+
+draw = ImageDraw.Draw(image)
+
+text_x = 55
+text_y = 45
+photoimage = ImageTk.PhotoImage(image)
+Label(root, image=photoimage).place(x=420,y=150)
 Label(root, text="Enter file name for CDS file (include .txt):").grid(row=0, column=0, sticky=W, padx=10, pady=10)
 CDSfileEntry = Entry(root)
 CDSfileEntry.grid(row=0, column=1, sticky=W, padx=10, pady=10)
@@ -785,16 +770,10 @@ progressbox = Text(root, width=100, height=5, background="#819bb4")
 progressbox.grid(row=10, column=0, sticky=W, padx=10, pady=10)
 progressbox.grid_remove()
 
-initialimage1 = Image.open(os.path.join(os.path.dirname(__file__), "bitmap.png"))
-initialimage1 = initialimage1.resize((200, 150), Image.ANTIALIAS)
-image1 = ImageTk.PhotoImage(initialimage1)
 
-Label(root, image=image1).grid(row=1, column=2, sticky=W, padx=10, pady=10)
 
-initialimage2 = Image.open(os.path.join(os.path.dirname(__file__), "riceseal.png"))
-initialimage2 = initialimage2.resize((100, 100), Image.ANTIALIAS)
-image2 = ImageTk.PhotoImage(initialimage2)
 
-Label(root, image=image2).grid(row=1, column=3, sticky=W, padx=10, pady=10)
+
+
 
 root.mainloop()
