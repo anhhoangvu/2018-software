@@ -1,7 +1,7 @@
 # This software sub-project is part of the Rice University 2018 iGEM team project.
 Purpose: Computationally design orthogonal ribosomes for different strains of bacteria. 10 steps are outlined in the flow chart below
 
-![alt text](https://github.com/Rice-iGEM/2018-software/blob/master/algorithm.png?raw=true)
+![alt text](2018-software/Rice iGEM 2018 Orthogonal Algorithm/algorithm.png)
 
 
 # Reference: 
