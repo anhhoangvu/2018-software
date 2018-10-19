@@ -41,7 +41,7 @@ def libbuild(rRNA):
                         for b6 in range(1, 5):
                             seqcode = str(b1) + str(b2) + str(b3) + str(b4) + str(b5) + str(b6)
                             SDseq = basecode[int(seqcode[0])-1] + basecode[int(seqcode[1])-1] + basecode[int(seqcode[2])-1] + basecode[int(seqcode[3])-1] + basecode[int(seqcode[4])-1] + basecode[int(seqcode[5])-1]
-                            ASDseq = wtASD[:4] + revcomp(SDseq) + wtASD[10:]
+                            ASDseq = wtASD[:3] + revcomp(SDseq) + wtASD[9:]
                             Lib.append([SDseq, ASDseq])
     Libdict = {}
     for x in range(0, 4096):
@@ -396,9 +396,11 @@ def get16srRNAseq(filename, start16sseq, stop16sseq, direction):
     filepath = os.path.join(os.path.dirname(__file__), filename)
     with open(filepath, 'r') as myfile:  # determine rRNA sequence
         data = myfile.read().replace('\n', '')
-    full16srRNAseq = convertTtoU(data[start16sseq-1:stop16sseq])
+    if direction == "forward":
+        full16srRNAseq = convertTtoU(data[start16sseq-1:stop16sseq])
     if direction == 'reverse':
-        listfull16srRNAseq = list(reversed(full16srRNAseq))
+        full16srRNAseq = convertTtoU(data[stop16sseq - 1:start16sseq])
+        listfull16srRNAseq = list(revcomp(full16srRNAseq))
         pseudosequence = ''
         for i in listfull16srRNAseq:
             pseudosequence += str(i)
